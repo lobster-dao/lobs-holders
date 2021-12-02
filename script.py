@@ -47,12 +47,11 @@ def main():
         writer.writerows(owners.items())
 
     files = [f.stem for f in lobs_owners.glob('lobs-owners_*_blk*.txt')] + [f.stem for f in lobs_count_by_addr.glob('lobs-count-by-addr_*_blk*.csv')]
-    blkids_dates = sorted(
-                set(
-                    (int(part[1].partition('blk')[-1]), part[0])
-                    for fn in files for part in fn.split('_')),
-                key=lambda x: x[0],
-                reverse=True)
+    blkids_dates = set()
+    for fn in files:
+        parts = fn.split('_')
+        blkids_dates.add((int(parts[2].partition('blk')[-1]), parts[1]))
+    blkids_dates = sorted(blkids_dates, key=lambda x: x[0], reverse=True)
 
     # honestly, whatever, i'll figure something out later
     with open('main/public/index.html', 'w') as f:
@@ -61,8 +60,8 @@ def main():
         for blkid, date in blkids_dates:
             owners_files = list(lobs_owners.glob(f'*_blk{blkid}.txt'))
             count_by_addr_files = list(lobs_count_by_addr.glob(f'*_blk{blkid}.csv'))
-            owners_link = f'<a href="{github_repo_raw_path + owners_files[0]}">lobs owners</a>' if len(owners_files) == 1 else "lobs owners"
-            count_by_addr_link = f'<a href="{github_repo_raw_path + count_by_addr_files[0]}">lobs count by addr</a>' if len(count_by_addr_files) == 1 else "lobs count by addr"
+            owners_link = f'<a href="{github_repo_raw_path + str(owners_files[0])}">lobs owners</a>' if len(owners_files) == 1 else "lobs owners"
+            count_by_addr_link = f'<a href="{github_repo_raw_path + str(count_by_addr_files[0])}">lobs count by addr</a>' if len(count_by_addr_files) == 1 else "lobs count by addr"
             f.write(f'<li>{date}, block {blkid}: {owners_link}, {count_by_addr_link}</li>')
 
         f.write('</ul></body></html>')
