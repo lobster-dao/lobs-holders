@@ -37,4 +37,4 @@ if __name__ == '__main__':
     import time
     
     with open('public/index.html', 'w') as f:
-        f.write("Hello, world! Current UNIX timestamp: " + time.time())
+        f.write("Hello, world! Current UNIX timestamp: " + str(time.time()))
