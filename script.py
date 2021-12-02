@@ -13,7 +13,7 @@ def main():
     brownie.network.connect('mainnet')
 
     # lobsterdao, or plop your contract addr here
-    nft_contract = Contract('0x026224a2940bfe258d0dbe947919b62fe321f042')
+    nft_contract = Contract.from_explorer('0x026224a2940bfe258d0dbe947919b62fe321f042')
     block_id = chain.height
     block_timestamp = datetime.fromtimestamp(chain[block_id].timestamp, tz=timezone.utc)
     total_supply = nft_contract.totalSupply(block_identifier=block_id)
