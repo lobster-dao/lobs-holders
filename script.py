@@ -22,7 +22,7 @@ def main():
     count_per_address = {addr: owners.count(addr) for addr in owner_addresses}
     count_per_address = dict(sorted(count_per_address.items(), key=lambda x: x[1], reverse=True))
 
-    with open('nft_owners.csv', 'w') as f:
+    with open('public/index.html', 'w') as f:
         writer = csv.writer(f)
         writer.writerow(['address', 'count'])
         writer.writerows(count_per_address.items())
