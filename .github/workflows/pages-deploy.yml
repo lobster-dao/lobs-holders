@@ -8,7 +8,7 @@ on:
   page_build:
   
   schedule:
-    - cron:  '*/2 * * * *'    # At every 15th minute
+    - cron:  '*/5 * * * *'    # At every 15th minute
 
 
 jobs:
