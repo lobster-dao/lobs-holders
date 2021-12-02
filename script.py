@@ -1,11 +1,11 @@
 #!/usr/bin/env python3.8
-import brownie
+from datetime import datetime, timezone
+from pathlib import Path
 import csv
 import os
-import pytz
+
+import brownie
 from brownie import Contract, chain
-from datetime import datetime
-from pathlib import Path
 
 github_repo_raw_path = f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/raw/'
 
@@ -15,7 +15,7 @@ def main():
     # lobsterdao, or plop your contract addr here
     nft_contract = Contract('0x026224a2940bfe258d0dbe947919b62fe321f042')
     block_id = chain.height
-    block_timestamp = datetime.fromtimestamp(chain[block_id].timestamp, tz=pytz.utc)
+    block_timestamp = datetime.fromtimestamp(chain[block_id].timestamp, tz=timezone.utc)
     total_supply = nft_contract.totalSupply(block_identifier=block_id)
 
     # hopefully faster with multicall
@@ -36,7 +36,7 @@ def main():
     lobs_count_by_addr = snapshots/"lobs_count_by_addr"
     lobs_count_by_addr.mkdir(exist_ok=True)
 
-    fn_suffix = f'{block_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")}_blk{block_id}')
+    fn_suffix = f'{block_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")}_blk{block_id}'
 
     with open(lobs_owners/f"lobs-owners_{fn_suffix}.txt", 'w') as f:
         f.write('\n'.join(owners.keys()) + '\n')
