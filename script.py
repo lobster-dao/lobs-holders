@@ -34,7 +34,11 @@
 
 
 if __name__ == '__main__':
+    pritn("Build start..")
+    
     import time
     
     with open('public/index.html', 'w') as f:
         f.write("Hello, world! Current UNIX timestamp: " + str(time.time()))
+        
+    pritn("Success!")
