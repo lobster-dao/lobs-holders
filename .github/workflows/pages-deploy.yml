@@ -28,6 +28,9 @@ jobs:
           path: snapshots
 
       - name: Install and Build 🔧
+        env:
+          WEB3_INFURA_PROJECT_ID: ${{ secrets.WEB3_INFURA_PROJECT_ID }}
+          ETHERSCAN_TOKEN: ${{ secrets.ETHERSCAN_TOKEN }}
         run: |
           pip3 install -r main/requirements.txt
           python3 main/script.py
