@@ -37,14 +37,6 @@ jobs:
 
       - uses: EndBug/add-and-commit@v7
         with:
-          cwd: main
-          author_name: GitHub Actions runner
-          author_email: yolo@example.com
-          branch: main
-          message: 'hourly cronjob update, probably'
-
-      - uses: EndBug/add-and-commit@v7
-        with:
           cwd: snapshots
           author_name: GitHub Actions runner
           author_email: yolo@example.com
