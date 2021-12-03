@@ -41,7 +41,7 @@ def multicall(mc2_contract, calls, block_identifier='latest'):
     res = mc2_contract.functions.tryAggregate(False, to_send).call(block_identifier=block_identifier)
     return parse_results(calls, res)
 
-def main():
+def main(block_identifier='latest'):
     w3 = Web3(HTTPProvider(rpc_url))
 
     with open('abis/LobstersNft.json', 'r') as f:
@@ -52,7 +52,7 @@ def main():
     lobs_contract = w3.eth.contract('0x026224A2940bFE258D0dbE947919B62fE321F042', abi=lobs_abi)
     mc2_contract = w3.eth.contract('0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696', abi=mc2_abi)
 
-    block = w3.eth.getBlock('latest')
+    block = w3.eth.getBlock(block_identifier)
     block_id = block.number
     block_timestamp = datetime.fromtimestamp(block.timestamp, tz=timezone.utc)
     print(f"Current block is {block_id}, timestamp {block_timestamp}")
