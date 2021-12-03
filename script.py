@@ -10,6 +10,7 @@ from web3 import Web3, WebsocketProvider
 github_repo_raw_path = f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/raw/'
 ws_url = f"wss://mainnet.infura.io/ws/v3/{os.environ['WEB3_INFURA_PROJECT_ID']}"
 multicall_chunk_size = 1000
+snapshots_limit = 5000
 
 codec = Web3().codec
 
@@ -104,16 +105,16 @@ def main():
         parts = fn.split('_')
         blkids_dates.add((int(parts[2].partition('blk')[-1]), parts[1]))
     blkids_dates = sorted(blkids_dates, key=lambda x: x[0], reverse=True)
-    print(f"We have {len(blkids_dates)} past snapshots")
+    print(f"We have {len(blkids_dates)} past snapshots; will include {min(len(blkids_dates), snapshots_limit)} in index")
 
     # honestly, whatever, i'll figure something out later
     public = Path('public')
     public.mkdir(exist_ok=True)
-    print(f"Writing html...")
+    print(f"Writing index...")
     with open(public/'index.html', 'w') as f:
         f.write('<html><body><h1>lobs holders snapshots</h1><ul>')
 
-        for blkid, date in blkids_dates:
+        for blkid, date in blkids_dates[0:snapshots_limit]:
             owners_files = list(lobs_owners.glob(f'*_blk{blkid}.txt'))
             count_by_addr_files = list(lobs_count_by_addr.glob(f'*_blk{blkid}.csv'))
             owners_link = f'<a href="{github_repo_raw_path + str(owners_files[0])}">lobs owners</a>' if len(owners_files) == 1 else "lobs owners"
