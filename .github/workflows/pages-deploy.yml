@@ -6,7 +6,8 @@ on:
       - main
 
   schedule:
-    - cron:  '4 * * * *'    # per github recommendation to not run things at the top of each hour... or something
+    # per github recommendation to not run things at the top of each hour... or something
+    - cron:  '47 * * * *'
 
 jobs:
   build-and-deploy:
