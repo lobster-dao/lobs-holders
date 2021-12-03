@@ -1,15 +1,16 @@
 #!/usr/bin/env python3.8
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 import csv
 import json
 import os
 
-from web3 import Web3, WebsocketProvider
+from web3 import Web3, HTTPProvider
 
 github_repo_raw_path = f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/raw/'
-ws_url = f"wss://mainnet.infura.io/ws/v3/{os.environ['WEB3_INFURA_PROJECT_ID']}"
-multicall_chunk_size = 1000
+rpc_url = f"https://mainnet.infura.io/v3/{os.environ['WEB3_INFURA_PROJECT_ID']}"
+multicall_chunk_size = 250
 snapshots_limit = 5000
 
 codec = Web3().codec
@@ -41,7 +42,7 @@ def multicall(mc2_contract, calls, block_identifier='latest'):
     return parse_results(calls, res)
 
 def main():
-    w3 = Web3(WebsocketProvider(ws_url))
+    w3 = Web3(HTTPProvider(rpc_url))
 
     with open('abis/LobstersNft.json', 'r') as f:
         lobs_abi = json.load(f)
@@ -62,12 +63,20 @@ def main():
     owners_list = list()
     calls = [lobs_contract.functions.ownerOf(i) for i in range(0, total_supply)]
     print(f"Getting owners with multicall chunk size {multicall_chunk_size}...")
-    for i in range(0, len(calls), multicall_chunk_size):
-        chunk = calls[i:i+multicall_chunk_size]
-        res = multicall(mc2_contract, chunk, block_identifier=block_id)
-        owners_list.extend(res)
-        print(f"{len(owners_list)} done...")
-    print(f"All done.\n")
+    with ThreadPoolExecutor(max_workers=32) as executor:
+        futures = list()
+        for i in range(0, len(calls), multicall_chunk_size):
+            def func(start_idx):
+                chunk = calls[start_idx:start_idx+multicall_chunk_size]
+                res = multicall(mc2_contract, chunk, block_identifier=block_id)
+                print(f"Done for IDs {start_idx}..{start_idx + len(chunk) - 1}")
+                return res
+            futures.append(executor.submit(func, i))
+
+        # ideally sequential so owners_list[nft_id] is the owner of nft #nft_id
+        for fut in futures:
+            owners_list.extend(fut.result())
+    print(f"All done, {len(owners_list)} total\n")
 
     print(f"Making a list, checking it twice")
     # count per owner address
