@@ -1,2 +1,4 @@
-# lobsterdao-list-example.github.io
-LobsterDAO automation script
+lobs-holders
+============
+
+makes a snapshot of LOBS holders every hour or so

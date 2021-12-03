@@ -2,30 +2,73 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import csv
+import json
 import os
 
-import brownie
-from brownie import Contract, chain
+from web3 import Web3, WebsocketProvider
 
 github_repo_raw_path = f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/raw/'
+ws_url = f"wss://mainnet.infura.io/ws/v3/{os.environ['WEB3_INFURA_PROJECT_ID']}"
+multicall_chunk_size = 1000
+
+codec = Web3().codec
+
+def gen_calls(calls):
+    to_send = list()
+    for call in calls:
+        args = tuple(arg['type'] for arg in call.abi['inputs'])
+        selector = Web3.keccak(text = f"{call.abi['name']}({','.join(args)})")[0:4]
+        argdata = codec.encode_abi(args, call.args)
+        to_send.append((call.address, selector + argdata))
+    return to_send
+
+def parse_results(calls, results):
+    ret = list()
+    for idx, (success, data) in enumerate(results):
+        if not success:
+            ret.append(None)
+        else:
+            types = tuple(arg['type'] for arg in calls[idx].abi['outputs'])
+            dec_raw = codec.decode_abi(types, data)
+            decoded = tuple(Web3.toChecksumAddress(d) if t == 'address' else d for t, d in zip(types, dec_raw))
+            ret.append(decoded[0] if len(decoded) == 1 else decoded)
+    return ret
+
+def multicall(mc2_contract, calls, block_identifier='latest'):
+    to_send = gen_calls(calls)
+    res = mc2_contract.functions.tryAggregate(False, to_send).call(block_identifier=block_identifier)
+    return parse_results(calls, res)
 
 def main():
-    brownie.network.connect('mainnet')
+    w3 = Web3(WebsocketProvider(ws_url))
 
-    # lobsterdao, or plop your contract addr here
-    nft_contract = Contract.from_explorer('0x026224a2940bfe258d0dbe947919b62fe321f042')
-    block_id = chain.height
-    block_timestamp = datetime.fromtimestamp(chain[block_id].timestamp, tz=timezone.utc)
-    total_supply = nft_contract.totalSupply(block_identifier=block_id)
+    with open('abis/LobstersNft.json', 'r') as f:
+        lobs_abi = json.load(f)
+    with open('abis/Multicall2.json', 'r') as f:
+        mc2_abi = json.load(f)
 
-    # hopefully faster with multicall
+    lobs_contract = w3.eth.contract('0x026224A2940bFE258D0dbE947919B62fE321F042', abi=lobs_abi)
+    mc2_contract = w3.eth.contract('0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696', abi=mc2_abi)
+
+    block = w3.eth.getBlock('latest')
+    block_id = block.number
+    block_timestamp = datetime.fromtimestamp(block.timestamp, tz=timezone.utc)
+    print(f"Current block is {block_id}, timestamp {block_timestamp}")
+
+    total_supply = lobs_contract.functions.totalSupply().call(block_identifier=block_id)
+    print(f"Current LOBS supply is {total_supply}\n")
+
     owners_list = list()
-    with brownie.multicall(block_identifier=block_id):
-        for i in range(0, total_supply):
-            if i % 1000 == 0:
-                brownie.multicall.flush() # in case infura is slow
-            owners_list.append(nft_contract.ownerOf(i))
+    calls = [lobs_contract.functions.ownerOf(i) for i in range(0, total_supply)]
+    print(f"Getting owners with multicall chunk size {multicall_chunk_size}...")
+    for i in range(0, len(calls), multicall_chunk_size):
+        chunk = calls[i:i+multicall_chunk_size]
+        res = multicall(mc2_contract, chunk, block_identifier=block_id)
+        owners_list.extend(res)
+        print(f"{len(owners_list)} done...")
+    print(f"All done.\n")
 
+    print(f"Making a list, checking it twice")
     # count per owner address
     owners = dict()
     for addr_raw in owners_list:
@@ -43,10 +86,14 @@ def main():
 
     fn_suffix = f'{block_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")}_blk{block_id}'
 
-    with open(lobs_owners/f"lobs-owners_{fn_suffix}.txt", 'w') as f:
+    lobs_owners_file = lobs_owners/f"lobs-owners_{fn_suffix}.txt"
+    print(f"Writing owners list to {lobs_owners_file}")
+    with open(lobs_owners_file, 'w') as f:
         f.write('\n'.join(owners.keys()) + '\n')
 
-    with open(lobs_count_by_addr/f"lobs-count-by-addr_{fn_suffix}.csv", 'w') as f:
+    lobs_count_by_addr_file = lobs_count_by_addr/f"lobs-count-by-addr_{fn_suffix}.csv"
+    print(f"Writing LOBS count by addr list to {lobs_count_by_addr_file}")
+    with open(lobs_count_by_addr_file, 'w') as f:
         writer = csv.writer(f)
         writer.writerow(['address', 'count'])
         writer.writerows(owners.items())
@@ -57,9 +104,13 @@ def main():
         parts = fn.split('_')
         blkids_dates.add((int(parts[2].partition('blk')[-1]), parts[1]))
     blkids_dates = sorted(blkids_dates, key=lambda x: x[0], reverse=True)
+    print(f"We have {len(blkids_dates)} past snapshots")
 
     # honestly, whatever, i'll figure something out later
-    with open('public/index.html', 'w') as f:
+    public = Path('public')
+    public.mkdir(exist_ok=True)
+    print(f"Writing html...")
+    with open(public/'index.html', 'w') as f:
         f.write('<html><body><h1>lobs holders snapshots</h1><ul>')
 
         for blkid, date in blkids_dates:
@@ -73,8 +124,6 @@ def main():
 
 
 if __name__ == '__main__':
-    print("Build start...")
-
+    print("Starting build\n")
     main()
-
-    print("Done?")
+    print("\nDone?")
