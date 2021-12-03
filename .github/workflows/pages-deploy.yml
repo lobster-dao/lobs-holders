@@ -6,7 +6,7 @@ on:
       - main
 
   schedule:
-    - cron:  '0 * * * *'    # at the top of each hour
+    - cron:  '4 * * * *'    # per github recommendation to not run things at the top of each hour... or something
 
 jobs:
   build-and-deploy:
@@ -35,15 +35,19 @@ jobs:
           pip3 install -r main/requirements.txt
           python3 main/script.py
 
+      - name: Change directory to git repo dir for next action
+        run: |
+          cd ~/main/
+
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@4.1.7
         with:
           branch: gh-pages # The branch the action should deploy to.
-          folder: main/public # The folder the action should deploy.
+          folder: public # The folder the action should deploy.
 
       - uses: EndBug/add-and-commit@v7
         with:
-          cwd: './main/'
+          cwd: '~/main/'
           author_name: GitHub Actions runner
           author_email: yolo@example.com
           branch: main
@@ -51,7 +55,7 @@ jobs:
 
       - uses: EndBug/add-and-commit@v7
         with:
-          cwd: './snapshots/'
+          cwd: '~/snapshots/'
           author_name: GitHub Actions runner
           author_email: yolo@example.com
           branch: snapshots
