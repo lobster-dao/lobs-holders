@@ -59,7 +59,7 @@ def main():
     blkids_dates = sorted(blkids_dates, key=lambda x: x[0], reverse=True)
 
     # honestly, whatever, i'll figure something out later
-    with open('main/public/index.html', 'w') as f:
+    with open('public/index.html', 'w') as f:
         f.write('<html><body><h1>lobs holders snapshots</h1><ul>')
 
         for blkid, date in blkids_dates:
