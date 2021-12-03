@@ -24,11 +24,12 @@ def main():
         for i in range(0, total_supply):
             if i % 1000 == 0:
                 brownie.multicall.flush() # in case infura is slow
-            owners.append(nft_contract.ownerOf(i))
+            owners_list.append(nft_contract.ownerOf(i))
 
     # count per owner address
     owners = dict()
-    for addr in owners_list:
+    for addr_raw in owners_list:
+        addr = str(addr_raw)
         owners[addr] = owners.get(addr, 0) + 1
 
     # sort by address
