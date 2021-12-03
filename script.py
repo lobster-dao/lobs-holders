@@ -41,7 +41,7 @@ def multicall(mc2_contract, calls, block_identifier='latest'):
     res = mc2_contract.functions.tryAggregate(False, to_send).call(block_identifier=block_identifier)
     return parse_results(calls, res)
 
-def main(block_identifier='latest'):
+def main(block_identifier='latest', build_index=True):
     w3 = Web3(HTTPProvider(rpc_url))
 
     with open('abis/LobstersNft.json', 'r') as f:
@@ -108,29 +108,30 @@ def main(block_identifier='latest'):
         writer.writerow(['address', 'count'])
         writer.writerows(owners.items())
 
-    files = [f.stem for f in lobs_owners.glob('lobs-owners_*_blk*.txt')] + [f.stem for f in lobs_count_by_addr.glob('lobs-count-by-addr_*_blk*.csv')]
-    blkids_dates = set()
-    for fn in files:
-        parts = fn.split('_')
-        blkids_dates.add((int(parts[2].partition('blk')[-1]), parts[1]))
-    blkids_dates = sorted(blkids_dates, key=lambda x: x[0], reverse=True)
-    print(f"We have {len(blkids_dates)} past snapshots; will include {min(len(blkids_dates), snapshots_limit)} in index")
+    if build_index:
+        files = [f.stem for f in lobs_owners.glob('lobs-owners_*_blk*.txt')] + [f.stem for f in lobs_count_by_addr.glob('lobs-count-by-addr_*_blk*.csv')]
+        blkids_dates = set()
+        for fn in files:
+            parts = fn.split('_')
+            blkids_dates.add((int(parts[2].partition('blk')[-1]), parts[1]))
+        blkids_dates = sorted(blkids_dates, key=lambda x: x[0], reverse=True)
+        print(f"We have {len(blkids_dates)} past snapshots; will include {min(len(blkids_dates), snapshots_limit)} in index")
 
-    # honestly, whatever, i'll figure something out later
-    public = Path('public')
-    public.mkdir(exist_ok=True)
-    print(f"Writing index...")
-    with open(public/'index.html', 'w') as f:
-        f.write('<html><body><h1>lobs holders snapshots</h1><ul>')
+        # honestly, whatever, i'll figure something out later
+        public = Path('public')
+        public.mkdir(exist_ok=True)
+        print(f"Writing index...")
+        with open(public/'index.html', 'w') as f:
+            f.write('<html><body><h1>lobs holders snapshots</h1><ul>')
 
-        for blkid, date in blkids_dates[0:snapshots_limit]:
-            owners_files = list(lobs_owners.glob(f'*_blk{blkid}.txt'))
-            count_by_addr_files = list(lobs_count_by_addr.glob(f'*_blk{blkid}.csv'))
-            owners_link = f'<a href="{github_repo_raw_path + str(owners_files[0])}">lobs owners</a>' if len(owners_files) == 1 else "lobs owners"
-            count_by_addr_link = f'<a href="{github_repo_raw_path + str(count_by_addr_files[0])}">lobs count by addr</a>' if len(count_by_addr_files) == 1 else "lobs count by addr"
-            f.write(f'<li>{date}, block {blkid}: {owners_link}, {count_by_addr_link}</li>')
+            for blkid, date in blkids_dates[0:snapshots_limit]:
+                owners_files = list(lobs_owners.glob(f'*_blk{blkid}.txt'))
+                count_by_addr_files = list(lobs_count_by_addr.glob(f'*_blk{blkid}.csv'))
+                owners_link = f'<a href="{github_repo_raw_path + str(owners_files[0])}">lobs owners</a>' if len(owners_files) == 1 else "lobs owners"
+                count_by_addr_link = f'<a href="{github_repo_raw_path + str(count_by_addr_files[0])}">lobs count by addr</a>' if len(count_by_addr_files) == 1 else "lobs count by addr"
+                f.write(f'<li>{date}, block {blkid}: {owners_link}, {count_by_addr_link}</li>')
 
-        f.write('</ul></body></html>')
+            f.write('</ul></body></html>')
 
 
 if __name__ == '__main__':
