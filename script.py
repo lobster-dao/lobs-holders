@@ -19,8 +19,12 @@ def main():
     total_supply = nft_contract.totalSupply(block_identifier=block_id)
 
     # hopefully faster with multicall
+    owners = list()
     with brownie.multicall(block_identifier=block_id):
-        owners = [nft_contract.ownerOf(i) for i in range(0, total_supply)]
+        for i in range(0, total_supply):
+            if i % 1000 == 0:
+                brownie.multicall.flush() # in case infura is slow
+            owners.append(nft_contract.ownerOf(i))
 
     # count per owner address
     owners = dict()
