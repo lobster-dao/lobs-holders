@@ -169,7 +169,7 @@ def main(block_identifier=None, build_index=True):
 
     if block_identifier == None: # default behavior: snapshots every 1k blocks + backfill if needed
         snapshots_blkids = {x[0] for x in filter(lambda y: y[0] % 1000 == 0, get_snapshots())}
-        latest = w3.eth.blockNumber // 1000 * 1000
+        latest = (w3.eth.blockNumber - 5) // 1000 * 1000 # in case of reorgs
         expected_count = (latest - first_block) // 1000 + 1
         current = latest
         print(f"We have {len(snapshots_blkids)} now; expecting {expected_count} snapshots")
