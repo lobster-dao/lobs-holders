@@ -35,7 +35,10 @@ jobs:
           pip3 install -r requirements.txt
           python3 script.py
 
-      - uses: EndBug/add-and-commit@v7
+      # public folder will only exist if new snapshot was made
+      - name: Commit snapshots
+        if: hashFiles('public') != ''
+        uses: EndBug/add-and-commit@v7
         with:
           cwd: snapshots
           author_name: GitHub Actions runner
@@ -44,6 +47,7 @@ jobs:
           message: 'hourly cronjob update, probably'
 
       - name: Deploy 🚀
+        if: hashFiles('public') != ''
         uses: JamesIves/github-pages-deploy-action@4.1.7
         with:
           branch: gh-pages # The branch the action should deploy to.
