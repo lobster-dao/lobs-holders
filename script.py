@@ -118,34 +118,74 @@ def save_holders(block_identifier='latest'):
         writer.writerow(['address', 'count'])
         writer.writerows(owners.items())
 
-def main(block_identifier='latest', build_index=True):
-    save_holders(block_identifier)
+def get_snapshots():
+    def parse(filenames):
+        snapshots = set() # (blk_num, timestamp)
+        for fn in filenames:
+            parts = fn.split('_')
+            snapshots.add((int(parts[2].partition('blk')[-1]), parts[1]))
+        return snapshots
+
+
+    snapshots_owners = parse(f.stem for f in lobs_owners_dir.glob('lobs-owners_*_blk*.txt'))
+    snapshots_counts = parse(f.stem for f in lobs_count_dir.glob('lobs-count-by-addr_*_blk*.csv'))
+
+    return snapshots_owners.intersection(snapshots_counts)
+
+def write_index():
+    snapshots = sorted(get_snapshots(), key=lambda x: x[0], reverse=True)
+    print(f"We have {len(snapshots)} past snapshots; will include {min(len(snapshots), snapshots_limit)} in index")
+
+    # honestly, whatever, i'll figure something out later
+    public = Path('public')
+    public.mkdir(exist_ok=True)
+    print(f"Writing index...")
+    with open(public/'index.html', 'w') as f:
+        f.write('<html><body><h1>lobs holders snapshots</h1><ul>')
+
+        for blkid, date in snapshots[0:snapshots_limit]:
+            owners_files = list(lobs_owners_dir.glob(f'*_blk{blkid}.txt'))
+            count_by_addr_files = list(lobs_count_dir.glob(f'*_blk{blkid}.csv'))
+            owners_link = f'<a href="{github_repo_raw_path + str(owners_files[0])}">lobs owners</a>' if len(owners_files) == 1 else "lobs owners"
+            count_by_addr_link = f'<a href="{github_repo_raw_path + str(count_by_addr_files[0])}">lobs count by addr</a>' if len(count_by_addr_files) == 1 else "lobs count by addr"
+            f.write(f'<li>{date}, block {blkid}: {owners_link}, {count_by_addr_link}</li>')
+
+        f.write('</ul></body></html>')
+
+def main(block_identifier=None, build_index=True):
+    def save_holders_with_retry(block_identifier):
+        tries = 3
+        while True:
+            try:
+                tries -= 1
+                save_holders(block_identifier)
+            except ValueError as e:
+                if tries <= 0:
+                    raise
+                else:
+                    print(f"Something went wrong, trying again (tries left = {tries})")
+            else:
+                break
+
+    if block_identifier == None: # default behavior: snapshots every 1k blocks + backfill if needed
+        snapshots_blkids = {x[0] for x in filter(lambda y: y[0] % 1000 == 0, get_snapshots())}
+        latest = w3.eth.blockNumber // 1000 * 1000
+        expected_count = (latest - first_block) // 1000 + 1
+        current = latest
+        print(f"We have {len(snapshots_blkids)} now; expecting {expected_count} snapshots")
+        build_index = build_index and expected_count != len(snapshots_blkids) # skip building index if we're already caught up
+        while len(snapshots_blkids) < expected_count:
+            assert current >= first_block, f"attempting to get holders for block {current}, which is before first block {first_block}" # should never happen
+
+            if current not in snapshots_blkids:
+                save_holders_with_retry(current)
+                snapshots_blkids.add(current)
+            current -= 1000
+    else:
+        save_holders_with_retry(block_identifier)
 
     if build_index:
-        files = [f.stem for f in lobs_owners_dir.glob('lobs-owners_*_blk*.txt')] + [f.stem for f in lobs_count_dir.glob('lobs-count-by-addr_*_blk*.csv')]
-        blkids_dates = set()
-        for fn in files:
-            parts = fn.split('_')
-            blkids_dates.add((int(parts[2].partition('blk')[-1]), parts[1]))
-        blkids_dates = sorted(blkids_dates, key=lambda x: x[0], reverse=True)
-        print(f"We have {len(blkids_dates)} past snapshots; will include {min(len(blkids_dates), snapshots_limit)} in index")
-
-        # honestly, whatever, i'll figure something out later
-        public = Path('public')
-        public.mkdir(exist_ok=True)
-        print(f"Writing index...")
-        with open(public/'index.html', 'w') as f:
-            f.write('<html><body><h1>lobs holders snapshots</h1><ul>')
-
-            for blkid, date in blkids_dates[0:snapshots_limit]:
-                owners_files = list(lobs_owners_dir.glob(f'*_blk{blkid}.txt'))
-                count_by_addr_files = list(lobs_count_dir.glob(f'*_blk{blkid}.csv'))
-                owners_link = f'<a href="{github_repo_raw_path + str(owners_files[0])}">lobs owners</a>' if len(owners_files) == 1 else "lobs owners"
-                count_by_addr_link = f'<a href="{github_repo_raw_path + str(count_by_addr_files[0])}">lobs count by addr</a>' if len(count_by_addr_files) == 1 else "lobs count by addr"
-                f.write(f'<li>{date}, block {blkid}: {owners_link}, {count_by_addr_link}</li>')
-
-            f.write('</ul></body></html>')
-
+        write_index()
 
 if __name__ == '__main__':
     print("Starting build\n")
