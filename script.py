@@ -15,6 +15,21 @@ snapshots_limit = 5000
 
 codec = Web3().codec
 
+w3 = Web3(HTTPProvider(rpc_url))
+with open('abis/LobstersNft.json', 'r') as f:
+    lobs_abi = json.load(f)
+with open('abis/Multicall2.json', 'r') as f:
+    mc2_abi = json.load(f)
+lobs_contract = w3.eth.contract('0x026224A2940bFE258D0dbE947919B62fE321F042', abi=lobs_abi)
+mc2_contract = w3.eth.contract('0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696', abi=mc2_abi)
+first_block = 13378748 # block at which contract was deployed
+
+snapshots_dir = Path('snapshots')
+lobs_owners_dir = snapshots_dir/"lobs_owners"
+lobs_owners_dir.mkdir(exist_ok=True)
+lobs_count_dir = snapshots_dir/"lobs_count_by_addr"
+lobs_count_dir.mkdir(exist_ok=True)
+
 def gen_calls(calls):
     to_send = list()
     for call in calls:
@@ -41,21 +56,13 @@ def multicall(mc2_contract, calls, block_identifier='latest'):
     res = mc2_contract.functions.tryAggregate(False, to_send).call(block_identifier=block_identifier)
     return parse_results(calls, res)
 
-def main(block_identifier='latest', build_index=True):
-    w3 = Web3(HTTPProvider(rpc_url))
+def get_holders(block_identifier='latest'):
+    if block_identifier == 'latest': # for consistent results
+        block_id = w3.eth.blockNumber
+    else:
+        block_id = block_identifier
 
-    with open('abis/LobstersNft.json', 'r') as f:
-        lobs_abi = json.load(f)
-    with open('abis/Multicall2.json', 'r') as f:
-        mc2_abi = json.load(f)
-
-    lobs_contract = w3.eth.contract('0x026224A2940bFE258D0dbE947919B62fE321F042', abi=lobs_abi)
-    mc2_contract = w3.eth.contract('0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696', abi=mc2_abi)
-
-    block = w3.eth.getBlock(block_identifier)
-    block_id = block.number
-    block_timestamp = datetime.fromtimestamp(block.timestamp, tz=timezone.utc)
-    print(f"Current block is {block_id}, timestamp {block_timestamp}")
+    print(f"Using block {block_id}")
 
     total_supply = lobs_contract.functions.totalSupply().call(block_identifier=block_id)
     print(f"Current LOBS supply is {total_supply}\n")
@@ -87,29 +94,35 @@ def main(block_identifier='latest', build_index=True):
 
     # sort by address
     owners = dict(sorted(owners.items(), key=lambda x: x[0]))
+    return owners
 
-    snapshots = Path('snapshots')
-    lobs_owners = snapshots/"lobs_owners"
-    lobs_owners.mkdir(exist_ok=True)
-    lobs_count_by_addr = snapshots/"lobs_count_by_addr"
-    lobs_count_by_addr.mkdir(exist_ok=True)
+def save_holders(block_identifier='latest'):
+    block = w3.eth.getBlock(block_identifier)
+    block_id = block.number
+    block_timestamp = datetime.fromtimestamp(block.timestamp, tz=timezone.utc)
+    print(f"Selected block is {block_id}, timestamp {block_timestamp}")
+
+    owners = get_holders(block_id)
 
     fn_suffix = f'{block_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")}_blk{block_id}'
 
-    lobs_owners_file = lobs_owners/f"lobs-owners_{fn_suffix}.txt"
+    lobs_owners_file = lobs_owners_dir/f"lobs-owners_{fn_suffix}.txt"
     print(f"Writing owners list to {lobs_owners_file}")
     with open(lobs_owners_file, 'w') as f:
         f.write('\n'.join(owners.keys()) + '\n')
 
-    lobs_count_by_addr_file = lobs_count_by_addr/f"lobs-count-by-addr_{fn_suffix}.csv"
+    lobs_count_by_addr_file = lobs_count_dir/f"lobs-count-by-addr_{fn_suffix}.csv"
     print(f"Writing LOBS count by addr list to {lobs_count_by_addr_file}")
     with open(lobs_count_by_addr_file, 'w') as f:
         writer = csv.writer(f)
         writer.writerow(['address', 'count'])
         writer.writerows(owners.items())
 
+def main(block_identifier='latest', build_index=True):
+    save_holders(block_identifier)
+
     if build_index:
-        files = [f.stem for f in lobs_owners.glob('lobs-owners_*_blk*.txt')] + [f.stem for f in lobs_count_by_addr.glob('lobs-count-by-addr_*_blk*.csv')]
+        files = [f.stem for f in lobs_owners_dir.glob('lobs-owners_*_blk*.txt')] + [f.stem for f in lobs_count_dir.glob('lobs-count-by-addr_*_blk*.csv')]
         blkids_dates = set()
         for fn in files:
             parts = fn.split('_')
@@ -125,8 +138,8 @@ def main(block_identifier='latest', build_index=True):
             f.write('<html><body><h1>lobs holders snapshots</h1><ul>')
 
             for blkid, date in blkids_dates[0:snapshots_limit]:
-                owners_files = list(lobs_owners.glob(f'*_blk{blkid}.txt'))
-                count_by_addr_files = list(lobs_count_by_addr.glob(f'*_blk{blkid}.csv'))
+                owners_files = list(lobs_owners_dir.glob(f'*_blk{blkid}.txt'))
+                count_by_addr_files = list(lobs_count_dir.glob(f'*_blk{blkid}.csv'))
                 owners_link = f'<a href="{github_repo_raw_path + str(owners_files[0])}">lobs owners</a>' if len(owners_files) == 1 else "lobs owners"
                 count_by_addr_link = f'<a href="{github_repo_raw_path + str(count_by_addr_files[0])}">lobs count by addr</a>' if len(count_by_addr_files) == 1 else "lobs count by addr"
                 f.write(f'<li>{date}, block {blkid}: {owners_link}, {count_by_addr_link}</li>')
