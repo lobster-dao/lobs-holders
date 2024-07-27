@@ -7,10 +7,11 @@ import json
 import os
 import time
 
+import web3
 from web3 import Web3, HTTPProvider
 
 github_repo_raw_path = f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/raw/'
-rpc_url = f"https://cloudflare-eth.com"
+rpc_url = f"https://rpc.ankr.com/eth"
 multicall_chunk_size = 250
 snapshots_limit = 5000
 
@@ -30,6 +31,18 @@ lobs_owners_dir = snapshots_dir/"lobs_owners"
 lobs_owners_dir.mkdir(exist_ok=True)
 lobs_count_dir = snapshots_dir/"lobs_count_by_addr"
 lobs_count_dir.mkdir(exist_ok=True)
+
+def retry(call, err):
+    tries = 5
+    while tries > 0:
+        tries -= 1
+        try:
+            return call()
+        except web3.exceptions.BadFunctionCallOutput:
+            time.sleep(3)
+            print(f"Retrying...")
+            continue
+    raise Exception(err)
 
 def gen_calls(calls):
     to_send = list()
@@ -65,7 +78,7 @@ def get_holders(block_identifier='latest'):
 
     print(f"Using block {block_id}")
 
-    total_supply = lobs_contract.functions.totalSupply().call(block_identifier=block_id)
+    total_supply = retry(lambda: lobs_contract.functions.totalSupply().call(block_identifier=block_id), "Error getting total supply")
     print(f"Current LOBS supply is {total_supply}\n")
 
     owners_list = list()
@@ -74,10 +87,10 @@ def get_holders(block_identifier='latest'):
     with ThreadPoolExecutor(max_workers=32) as executor:
         futures = list()
         for i in range(0, len(calls), multicall_chunk_size):
-            time.sleep(0.2)
+            time.sleep(0.5)
             def func(start_idx):
                 chunk = calls[start_idx:start_idx+multicall_chunk_size]
-                res = multicall(mc2_contract, chunk, block_identifier=block_id)
+                res = retry(lambda: multicall(mc2_contract, chunk, block_identifier=block_id), f"Error getting owners for {start_idx}..{start_idx + len(chunk) - 1}")
                 print(f"Done for IDs {start_idx}..{start_idx + len(chunk) - 1}")
                 return res
             futures.append(executor.submit(func, i))
