@@ -168,20 +168,6 @@ def write_index():
         f.write('</ul></body></html>')
 
 def main(block_identifier=None, build_index=True):
-    def save_holders_with_retry(block_identifier):
-        tries = 3
-        while True:
-            try:
-                tries -= 1
-                save_holders(block_identifier)
-            except ValueError as e:
-                if tries <= 0:
-                    raise
-                else:
-                    print(f"Something went wrong, trying again (tries left = {tries})")
-            else:
-                break
-
     if block_identifier == None: # default behavior: snapshots every 1k blocks + backfill if needed
         snapshots_blkids = {x[0] for x in filter(lambda y: y[0] % 1000 == 0, get_snapshots())}
         latest = (w3.eth.block_number - 5) // 1000 * 1000 # in case of reorgs
@@ -193,11 +179,11 @@ def main(block_identifier=None, build_index=True):
             assert current >= first_block, f"attempting to get holders for block {current}, which is before first block {first_block}" # should never happen
 
             if current not in snapshots_blkids:
-                save_holders_with_retry(current)
+                retry(lambda: save_holders(current), "Error saving holders")
                 snapshots_blkids.add(current)
             current -= 1000
     else:
-        save_holders_with_retry(block_identifier)
+        retry(lambda: save_holders(current), "Error saving holders")
 
     if build_index:
         write_index()
