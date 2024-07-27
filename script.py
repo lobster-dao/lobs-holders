@@ -9,7 +9,7 @@ import os
 from web3 import Web3, HTTPProvider
 
 github_repo_raw_path = f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/raw/'
-rpc_url = f"https://cloudflare-eth.com/"
+rpc_url = f"https://rpc.flashbots.net/"
 multicall_chunk_size = 250
 snapshots_limit = 5000
 
