@@ -5,11 +5,12 @@ from pathlib import Path
 import csv
 import json
 import os
+import time
 
 from web3 import Web3, HTTPProvider
 
 github_repo_raw_path = f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/raw/'
-rpc_url = f"https://rpc.flashbots.net/"
+rpc_url = f"https://cloudflare-eth.com"
 multicall_chunk_size = 250
 snapshots_limit = 5000
 
@@ -73,6 +74,7 @@ def get_holders(block_identifier='latest'):
     with ThreadPoolExecutor(max_workers=32) as executor:
         futures = list()
         for i in range(0, len(calls), multicall_chunk_size):
+            time.sleep(0.2)
             def func(start_idx):
                 chunk = calls[start_idx:start_idx+multicall_chunk_size]
                 res = multicall(mc2_contract, chunk, block_identifier=block_id)
