@@ -35,7 +35,7 @@ def gen_calls(calls):
     for call in calls:
         args = tuple(arg['type'] for arg in call.abi['inputs'])
         selector = Web3.keccak(text = f"{call.abi['name']}({','.join(args)})")[0:4]
-        argdata = codec.encode_abi(args, call.args)
+        argdata = codec.encode(args, call.args)
         to_send.append((call.address, selector + argdata))
     return to_send
 
@@ -46,8 +46,8 @@ def parse_results(calls, results):
             ret.append(None)
         else:
             types = tuple(arg['type'] for arg in calls[idx].abi['outputs'])
-            dec_raw = codec.decode_abi(types, data)
-            decoded = tuple(Web3.toChecksumAddress(d) if t == 'address' else d for t, d in zip(types, dec_raw))
+            dec_raw = codec.decode(types, data)
+            decoded = tuple(Web3.to_checksum_address(d) if t == 'address' else d for t, d in zip(types, dec_raw))
             ret.append(decoded[0] if len(decoded) == 1 else decoded)
     return ret
 
@@ -58,7 +58,7 @@ def multicall(mc2_contract, calls, block_identifier='latest'):
 
 def get_holders(block_identifier='latest'):
     if block_identifier == 'latest': # for consistent results
-        block_id = w3.eth.blockNumber
+        block_id = w3.eth.block_number
     else:
         block_id = block_identifier
 
@@ -97,7 +97,7 @@ def get_holders(block_identifier='latest'):
     return owners
 
 def save_holders(block_identifier='latest'):
-    block = w3.eth.getBlock(block_identifier)
+    block = w3.eth.get_block(block_identifier)
     block_id = block.number
     block_timestamp = datetime.fromtimestamp(block.timestamp, tz=timezone.utc)
     print(f"Selected block is {block_id}, timestamp {block_timestamp}")
@@ -169,7 +169,7 @@ def main(block_identifier=None, build_index=True):
 
     if block_identifier == None: # default behavior: snapshots every 1k blocks + backfill if needed
         snapshots_blkids = {x[0] for x in filter(lambda y: y[0] % 1000 == 0, get_snapshots())}
-        latest = (w3.eth.blockNumber - 5) // 1000 * 1000 # in case of reorgs
+        latest = (w3.eth.block_number - 5) // 1000 * 1000 # in case of reorgs
         expected_count = (latest - first_block) // 1000 + 1
         current = latest
         print(f"We have {len(snapshots_blkids)} now; expecting {expected_count} snapshots")
