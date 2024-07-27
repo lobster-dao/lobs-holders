@@ -159,10 +159,8 @@ def write_index():
         f.write('<html><body><h1>lobs holders snapshots</h1><ul>')
 
         for blkid, date in snapshots[0:snapshots_limit]:
-            owners_files = list(lobs_owners_dir.glob(f'*_blk{blkid}.txt'))
-            count_by_addr_files = list(lobs_count_dir.glob(f'*_blk{blkid}.csv'))
-            owners_link = f'<a href="{github_repo_raw_path + str(owners_files[0])}">lobs owners</a>' if len(owners_files) == 1 else "lobs owners"
-            count_by_addr_link = f'<a href="{github_repo_raw_path + str(count_by_addr_files[0])}">lobs count by addr</a>' if len(count_by_addr_files) == 1 else "lobs count by addr"
+            owners_link = f'<a href="{github_repo_raw_path}snapshots/lobs_owners/lobs-owners_{date}_blk{blkid}.txt">lobs owners</a>'
+            count_by_addr_link = f'<a href="{github_repo_raw_path}snapshots/lobs_count_by_addr/lobs-count-by-addr_{date}_blk{blkid}.csv">lobs count by addr</a>'
             f.write(f'<li>{date}, block {blkid}: {owners_link}, {count_by_addr_link}</li>')
 
         f.write('</ul></body></html>')
