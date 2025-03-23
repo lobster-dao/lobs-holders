@@ -11,7 +11,7 @@ import web3
 from web3 import Web3, HTTPProvider
 
 github_repo_raw_path = f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/raw/'
-rpc_url = f"https://rpc.ankr.com/eth"
+rpc_url = f"https://eth.llamarpc.com"
 multicall_chunk_size = 250
 snapshots_limit = 5000
 
